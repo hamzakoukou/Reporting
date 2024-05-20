@@ -1,4 +1,3 @@
-
 <?php
 
 // Include PhpSpreadsheet library
@@ -10,84 +9,56 @@ $db_name = 'db';
 $username = 'root';
 $password = '';
 
-try {
-  // PDO connection
-  $conn = new PDO("mysql:host=$host;dbname=$db_name", $username, $password);
-  $conn->setAttribute(PDO::ATTR_ERRMODE, PDO::ERRMODE_EXCEPTION);
-} catch (PDOException $e) {
-  die("Error connecting to database: " . $e->getMessage());
-}
+// try {
+//   // PDO connection
+//   $conn = new PDO("mysql:host=$host;dbname=$db_name", $username, $password);
+//   $conn->setAttribute(PDO::ATTR_ERRMODE, PDO::ERRMODE_EXCEPTION);
+// } catch (PDOException $e) {
+//   die("Error connecting to database: " . $e->getMessage());
+// }
 
 $upload_dir = 'uploads/';
-
 if (!is_dir($upload_dir)) {
   mkdir($upload_dir, 0775, true); // Create directory with permissions
 }
+$refFilePath = $upload_dir . 'Fichier de correspondance de noms.xlsx'; // Reference file path
 
-print_r($_FILES);
+$response = ['success' => false, 'message' => ''];
 
-// Handle uploaded files
-if (isset($_FILES['files'])) {
-  $errors = [];
+if (!file_exists($refFilePath)) {
+    $response['message'] = 'Reference file does not exist. Please upload it first.';
+    echo json_encode($response);
+    exit();
+}
 
-  foreach ($_FILES['files']['error'] as $key => $error) {
-    if ($error === UPLOAD_ERR_OK) {
-      $filename = $_FILES['files']['name'][$key];
-      $tmp_name = $_FILES['files']['tmp_name'][$key];
-    
+if (isset($_FILES['collaborators'], $_FILES['production'], $_FILES['charges'])) {
+    $collaboratorsPath = $upload_dir . $_FILES['collaborators']['name'];
+    $productionPath = $upload_dir . $_FILES['production']['name'];
+    $chargesPath = $upload_dir . $_FILES['charges']['name'];
 
-      // Check for valid Excel file (replace with your extension check if needed)
-      if (pathinfo($filename)['extension'] === 'xlsx') {
-        // Generate unique filename 
-        // $new_filename = uniqid('', true) . '.' . pathinfo($filename)['extension']; 
-        // $destination = $upload_dir . $new_filename;
+    if (move_uploaded_file($_FILES['collaborators']['tmp_name'], $collaboratorsPath) &&
+        move_uploaded_file($_FILES['production']['tmp_name'], $productionPath) &&
+        move_uploaded_file($_FILES['charges']['tmp_name'], $chargesPath)) {
+        // Call Python script to verify data
+        $command = escapeshellcmd("python verify_data.py $collaboratorsPath $productionPath $chargesPath $refFilePath");
+        $output = shell_exec($command);
+        $result = json_decode($output, true);
 
-        $destination = $upload_dir . $filename;
-
-        // Move uploaded file to the upload directory
-        if (move_uploaded_file($tmp_name, $destination)) {
-          // $verification_result = verify_data_python($destination); // Call Python script with full path
-          // if ($verification_result['success']) {
-          //   processExcelFile($destination, $conn);
-          // } else {
-          //   $errors[] = "Data verification failed for '" . $filename . "': " . $verification_result['message'];
-          //   // Optionally, remove the uploaded file here if verification fails
-          // }
-          echo 'Moving succes !';
+        if ($result && $result['success']) {
+            $response = ['success' => true, 'message' => 'Files processed successfully.'];
         } else {
-          $errors[] = "Error moving file '" . $filename . "'";
+            $response = ['success' => false, 'message' => 'Error processing files: ' . $result['message']];
         }
-      } else {
-        $errors[] = "Invalid file format for '" . $filename . "'";
-      }
     } else {
-      $errors[] = "Error uploading '" . $filename . "': " . $_FILES['files']['error'][$key];
+        $response['message'] = 'Failed to upload files.';
     }
-  }
-
-  // Display any errors encountered during upload
-  if ($errors) {
-    echo "<b>Upload Errors:</b><br>";
-    foreach ($errors as $error) {
-      echo "- " . $error . "<br>";
-    }
-  }
 } else {
-  echo "No files selected for upload.";
+    $response['message'] = 'All files must be uploaded.';
 }
 
-// Close database connection (PDO handles it automatically)
+echo json_encode($response);
+exit();
 
-function verify_data_python($filepath) {
-  // Assuming Python script is in the same directory
-  $python_output = exec("python verify_data.py $filepath 2>&1", $output_array, $return_var);
-
-  if ($return_var === 0) {
-    return ['success' => true, 'message' => implode("\n", $output_array)];
-  } else {
-    return ['success' => false, 'message' => implode("\n", $output_array)];
-  }
-}
 
 function processExcelFile($filepath, $conn) {
   // Create a new PhpSpreadsheet object
@@ -127,6 +98,4 @@ function processExcelFile($filepath, $conn) {
     }
   }
 }
-
-?>
 
