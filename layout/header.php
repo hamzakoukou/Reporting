@@ -1,3 +1,5 @@
+<?php include 'connection.php';?>
+
 <!DOCTYPE html>
 <!--[if IE 9]>         <html class="ie9 no-focus"> <![endif]-->
 <!--[if gt IE 9]><!--> 
@@ -61,20 +63,58 @@
                 <div id="sidebar-scroll">
                     <!-- Sidebar Content -->
                     <div class="sidebar-content">
+                        <!-- Side Header -->
+                        <div class="side-header side-content bg-white-op">
+                            <button class="btn btn-link text-gray pull-right hidden-md hidden-lg" type="button" data-toggle="layout" data-action="sidebar_close">
+                                <i class="fa fa-times"></i>
+                            </button>
+                            <div class="btn-group" style="width: 100%;">
+                                <button class="btn btn-default btn-image dropdown-toggle" data-toggle="dropdown" type="button" style="width: 100%; background: transparent; color: #ffffff; text-align: left; border: none;">
+                                    <i class="si si-user" style="color: #5c90d2;"></i>
+                                    <span class="h5 sidebar-mini-hide" style="margin-left: 10px; color: #ffffff;"><?php echo $_SESSION['username']?></span>
+                                    <span class="caret" style="position: absolute; right: 10px; top: 50%; transform: translateY(-50%);"></span>
+                                </button>
+                                <ul class="dropdown-menu dropdown-menu-right">
+                                    <li><a href="profile.php"><i class="si si-user"></i> Profile</a></li>
+                                    <li><a href="history.php"><i class="si si-clock"></i> History</a></li>
+                                    <li><a href="logout.php"><i class="si si-logout"></i> Logout</a></li>
+                                </ul>
+                            </div>
+                        </div>
+                        <!-- END Side Header -->
+
                         <!-- Side Content -->
                         <div class="side-content">
                             <ul class="nav-main">
-                            <li class="<?php echo (basename($_SERVER['PHP_SELF']) == 'files.php') ? 'selected' : ''; ?>">
-                                    <a href="files.php"><i class="si si-folder"></i><span class="sidebar-mini-hide">Files</span></a>
+                                <!-- Files Menu Item with Subsections -->
+                                <li class="<?php echo (basename($_SERVER['PHP_SELF']) == 'consulterfiles.php' || basename($_SERVER['PHP_SELF']) == 'files.php') ? 'open' : ''; ?>">
+                                    <a href="javascript:void(0)" class="nav-submenu" data-toggle="nav-submenu"><i class="si si-folder"></i><span class="sidebar-mini-hide">Files</span></a>
+                                    <ul>
+                                        <li>
+                                            <a href="consulterfiles.php" class="<?php echo (basename($_SERVER['PHP_SELF']) == 'consulterfiles.php') ? 'active' : ''; ?>"><i class="si si-eye"></i>Overview</a>
+                                        </li>
+                                        <li>
+                                            <a href="files.php" class="<?php echo (basename($_SERVER['PHP_SELF']) == 'files.php') ? 'active' : ''; ?>"><i class="si si-cloud-upload"></i>Upload</a>
+                                        </li>
+                                    </ul>
                                 </li>
                                 <li>
                                     <a href="configurations.php"><i class="si si-wrench"></i><span class="sidebar-mini-hide">Configurations</span></a>
                                 </li>
-                                <li>
-                                    <a href="results.php"><i class="si si-bar-chart"></i><span class="sidebar-mini-hide">Results</span></a>
-                                </li>
-                                <li>
-                                    <a href="logout.php"><i class="si si-logout"></i><span class="sidebar-mini-hide">Logout</span></a>
+                                <!-- Results Menu Item with Subsections -->
+                                <li class="<?php echo (basename($_SERVER['PHP_SELF']) == 'traitement.php' || basename($_SERVER['PHP_SELF']) == 'overview.php' || basename($_SERVER['PHP_SELF']) == 'downloads.php') ? 'open' : ''; ?>">
+                                    <a href="javascript:void(0)" class="nav-submenu" data-toggle="nav-submenu"><i class="si si-bar-chart"></i><span class="sidebar-mini-hide">Results</span></a>
+                                    <ul>
+                                        <li>
+                                            <a href="traitement.php" class="<?php echo (basename($_SERVER['PHP_SELF']) == 'traitement.php') ? 'active' : ''; ?>"><i class="si si-settings"></i>Traitement</a>
+                                        </li>
+                                        <li>
+                                            <a href="overview.php" class="<?php echo (basename($_SERVER['PHP_SELF']) == 'overview.php') ? 'active' : ''; ?>"><i class="si si-eye"></i>Overview</a>
+                                        </li>
+                                        <li>
+                                            <a href="downloads.php" class="<?php echo (basename($_SERVER['PHP_SELF']) == 'downloads.php') ? 'active' : ''; ?>"><i class="si si-cloud-download"></i>Downloads</a>
+                                        </li>
+                                    </ul>
                                 </li>
                             </ul>
                         </div>
@@ -139,4 +179,8 @@
             <!-- END Header -->
 
 
+            
+            
+            
+            
             

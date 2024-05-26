@@ -11,3 +11,5 @@ try {
 } catch (PDOException $e) {
   die("Error connecting to database: " . $e->getMessage());
 }
+
+session_start();

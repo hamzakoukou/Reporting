@@ -1,6 +1,16 @@
 <?php
 include 'layout/header.php'; 
-include 'connection.php';
+
+$requiredTables = ['codesap', 'costdirect', 'tarifsjh', 'typecost'];
+$allConfigurationsDone = true;
+foreach ($requiredTables as $table) {
+    $stmt = $pdo->query("SHOW TABLES LIKE '$table'");
+    if ($stmt->rowCount() == 0) {
+        $allConfigurationsDone = false;
+        break;
+    }
+}
+$_SESSION['all_configurations_done'] = $allConfigurationsDone;
 
 
 function fetchTableData($pdo, $tableName) {
@@ -9,16 +19,17 @@ function fetchTableData($pdo, $tableName) {
     return $stmt->fetchAll(PDO::FETCH_ASSOC);
 }
 
-
-
-$tables = $pdo->query("SHOW TABLES")->fetchAll(PDO::FETCH_COLUMN);
-
 $tableDisplayNames = [
     'codesap' => 'Codes SAP',
     'costdirect' => 'Codes Costs Directs',
     'tarifsjh' => 'Tarifs JH',
     'typecost' => 'Types de Costs'
 ];
+
+$tables = $pdo->query("SHOW TABLES")->fetchAll(PDO::FETCH_COLUMN);
+$tables = array_intersect($tables, array_keys($tableDisplayNames));
+
+
 
 function getDisplayName($tableName, $tableDisplayNames) {
     return $tableDisplayNames[$tableName] ?? $tableName; // Return the table name itself if not found in the dictionary
@@ -38,10 +49,16 @@ function getDisplayName($tableName, $tableDisplayNames) {
         <div class="block-content tab-content">
             <?php foreach ($tables as $index => $table): ?>
                 <div class="tab-pane <?= $index === 0 ? 'active' : '' ?>" id="<?= $table ?>">
-                    <input type="text" class="form-control search-input" placeholder="Search..." data-table="<?= $table ?>">
-                    <!-- Edit Button -->
-                    <a href="editconfigurations.php?table=<?= $table ?>" class="btn btn-primary">Edit</a>
-                    
+                    <div class="row">
+                            <div class="col-sm-11">
+                                <input type="text" class="form-control search-input" placeholder="Search..." data-table="<?= $table ?>">
+                            </div>
+                            <div class="col-sm-1">   
+                                <!-- Edit Button -->
+                                <a href="editconfigurations.php?table=<?= $table ?>&displayName=<?= urlencode(getDisplayName($table, $tableDisplayNames)) ?>" class="btn btn-primary">Edit</a>
+                            </div>
+                    </div>
+                            
                     <div class="table-responsive">
                         <?php
                         $tableData = fetchTableData($pdo, $table);
@@ -95,6 +112,9 @@ function getDisplayName($tableName, $tableDisplayNames) {
 <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
 <script>
 $(document).ready(function() {
+    // Activate the first tab and its content on page load
+    $('.nav-tabs li:first-child a').tab('show');
+
     function updatePaginationDisplay(table, currentPage, totalPages) {
         $('#' + table + ' .pagination-info').text('Page ' + (currentPage + 1) + ' of ' + totalPages);
         var pageSelector = $('#' + table + ' .page-selector');
@@ -126,9 +146,14 @@ $(document).ready(function() {
     $('.search-input').on('keyup', function() {
         var searchTerm = $(this).val().toLowerCase();
         var table = $(this).data('table');
-        $('#' + table + ' tbody tr').filter(function() {
-            $(this).toggle($(this).text().toLowerCase().indexOf(searchTerm) > -1)
-        });
+        if (searchTerm === '') {
+            // Optionally, reload data or reset view when search is cleared
+            paginate(table, parseInt($('#' + table + ' .row-count-selector').val()));
+        } else {
+            $('#' + table + ' tbody tr').filter(function() {
+                $(this).toggle($(this).text().toLowerCase().indexOf(searchTerm) > -1)
+            });
+        }
     });
 
     $('.prev-page, .next-page').click(function() {

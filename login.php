@@ -1,6 +1,50 @@
-<!DOCTYPE html>
-<!--[if IE 9]>         <html class="ie9 no-focus"> <![endif]-->
-<!--[if gt IE 9]><!--> <html class="no-focus"> <!--<![endif]-->
+<?php
+include 'connection.php';
+
+
+$error = '';
+
+if ($_SERVER["REQUEST_METHOD"] == "POST") {
+    $username = $_POST['login-username'];
+    $password = $_POST['login-password'];
+
+    $query = "SELECT username, last_login, super_var FROM users WHERE username = ? AND password = ?";
+    if ($stmt = $pdo->prepare($query)) {
+        $stmt->bindParam(1, $username, PDO::PARAM_STR);
+        $stmt->bindParam(2, $password, PDO::PARAM_STR);
+        $stmt->execute();
+
+        if ($stmt->rowCount() == 1) {
+            $stmt->bindColumn('username', $username);
+            $stmt->bindColumn('last_login', $last_login);
+            $stmt->bindColumn('super_var', $super_var);
+            $stmt->fetch(PDO::FETCH_BOUND);
+
+              // Update last login time
+            $updateQuery = "UPDATE users SET last_login = NOW() WHERE username = ?";
+            $updateStmt = $pdo->prepare($updateQuery);
+            $updateStmt->bindParam(1, $username, PDO::PARAM_STR);
+            $updateStmt->execute();
+
+            // Set session variables
+            $_SESSION['username'] = $username;
+            $_SESSION['last_login'] = $last_login;
+            $_SESSION['session_long'] = time(); // Current time as session start
+            $_SESSION['super_var'] = $super_var;
+            $_SESSION['user_logged_in'] = true; // Add this line to indicate the user is logged in
+
+            header("location: index.php"); // Redirect to a dashboard page
+            exit;
+        } else {
+            $error = 'Username or password is wrong.';
+        }
+        //$stmt->close();
+    }
+    //$pdo->close();
+}
+?>
+
+<html class="no-focus"> <!--<![endif]-->
     <head>
         <meta charset="utf-8">
 
@@ -70,7 +114,7 @@
                             <!-- Login Form -->
                             <!-- jQuery Validation (.js-validation-login class is initialized in js/pages/base_pages_login.js) -->
                             <!-- For more examples you can check out https://github.com/jzaefferer/jquery-validation -->
-                            <form class="js-validation-login form-horizontal push-30-t push-50" action="index.html" method="post">
+                            <form class="js-validation-login form-horizontal push-30-t push-50" action="login.php" method="post">
                                 <div class="form-group">
                                     <div class="col-xs-12">
                                         <div class="form-material form-material-primary floating">
@@ -100,6 +144,10 @@
                                     </div>
                                 </div>
                             </form>
+                            <p class="text-center">Don't have an account? <a href="signup.php">Sign up</a></p>
+                            <?php if ($error): ?>
+                                <p class="text-danger"><?= htmlspecialchars($error) ?></p>
+                            <?php endif; ?>
                             <!-- END Login Form -->
                         </div>
                     </div>
@@ -132,4 +180,6 @@
         <!-- Page JS Code -->
         <script src="assets/js/pages/base_pages_login.js"></script>
     </body>
+</html>
+</html>
 </html>

@@ -1,101 +1,90 @@
 <?php
 
-// Include PhpSpreadsheet library
-require_once 'vendor/autoload.php';
+require_once 'connection.php';
 
-// Database connection details (replace with your actual credentials)
-$host = 'localhost';
-$db_name = 'db';
-$username = 'root';
-$password = '';
-
-// try {
-//   // PDO connection
-//   $conn = new PDO("mysql:host=$host;dbname=$db_name", $username, $password);
-//   $conn->setAttribute(PDO::ATTR_ERRMODE, PDO::ERRMODE_EXCEPTION);
-// } catch (PDOException $e) {
-//   die("Error connecting to database: " . $e->getMessage());
-// }
 
 $upload_dir = 'uploads/';
 if (!is_dir($upload_dir)) {
-  mkdir($upload_dir, 0775, true); // Create directory with permissions
-}
-$refFilePath = $upload_dir . 'Fichier de correspondance de noms.xlsx'; // Reference file path
-
-$response = ['success' => false, 'message' => ''];
-
-if (!file_exists($refFilePath)) {
-    $response['message'] = 'Reference file does not exist. Please upload it first.';
-    echo json_encode($response);
-    exit();
+    mkdir($upload_dir, 0775, true); // Create directory with permissions
 }
 
-if (isset($_FILES['collaborators'], $_FILES['production'], $_FILES['charges'])) {
-    $collaboratorsPath = $upload_dir . $_FILES['collaborators']['name'];
-    $productionPath = $upload_dir . $_FILES['production']['name'];
-    $chargesPath = $upload_dir . $_FILES['charges']['name'];
-
-    if (move_uploaded_file($_FILES['collaborators']['tmp_name'], $collaboratorsPath) &&
-        move_uploaded_file($_FILES['production']['tmp_name'], $productionPath) &&
-        move_uploaded_file($_FILES['charges']['tmp_name'], $chargesPath)) {
-        // Call Python script to verify data
-        $command = escapeshellcmd("python verify_data.py $collaboratorsPath $productionPath $chargesPath $refFilePath");
-        $output = shell_exec($command);
-        $result = json_decode($output, true);
-
-        if ($result && $result['success']) {
-            $response = ['success' => true, 'message' => 'Files processed successfully.'];
-        } else {
-            $response = ['success' => false, 'message' => 'Error processing files: ' . $result['message']];
-        }
-    } else {
-        $response['message'] = 'Failed to upload files.';
-    }
-} else {
-    $response['message'] = 'All files must be uploaded.';
-}
-
-echo json_encode($response);
-exit();
 
 
-function processExcelFile($filepath, $conn) {
-  // Create a new PhpSpreadsheet object
-  $reader = new \PhpOffice\PhpSpreadsheet\Reader\Xlsx();
-  $spreadsheet = $reader->load($filepath);
+if (isset($_FILES['refFile'], $_FILES['annexeFile'])) {
+    $refFilePath = $upload_dir . 'Fichier de correspondance de noms.xlsx'; //Reference file path
+    $annexeFilePath = $upload_dir . 'Annexe.xlsx'; // Annexe file path
+  $refFile = $_FILES['refFile']['tmp_name'];
+  $annexeFile = $_FILES['annexeFile']['tmp_name'];
+  if (!file_exists($refFilePath) || !file_exists($annexeFilePath)) {
+      move_uploaded_file($refFile, $refFilePath);
+      move_uploaded_file($annexeFile, $annexeFilePath);
 
-  // Get the active sheet
-  $sheet = $spreadsheet->getActiveSheet();
+      // Pass database connection details to the Python script
+      $command = escapeshellcmd("python3 verify_data.py " . escapeshellarg($refFilePath) . " " . escapeshellarg($annexeFilePath) . " " . escapeshellarg($host) . " " . escapeshellarg($db_name) . " " . escapeshellarg($username) . " " . escapeshellarg($password));
+      $output = shell_exec($command);
+      if ($output === null) {
+          echo 'Error: Python script did not execute.';
+          exit();
+      }
+      $result = json_decode($output, true);
 
-  // Iterate through rows (skip header row)
-  $data = $sheet->toArray(null, true, true, true); // Include header row
-
-  // Assuming first row contains column names (adjust as needed)
-  $column_names = array_slice($data[1], 1); // Extract column names (skip column A)
-
-  for ($row = 2; $row <= count($data); $row++) {
-    $extracted_data = array_slice($data[$row], 1); // Extract data from row (skip column A)
-
-    // Prepare the INSERT query (replace with your table name)
-    $sql = "INSERT INTO your_table (" . implode(',', $column_names) . ") VALUES (:col1, :col2, ...)";
-
-    // Prepare the statement
-    $stmt = $conn->prepare($sql);
-
-    // Bind parameters dynamically based on the number of columns
-    $params = [];
-    foreach ($column_names as $i => $col_name) {
-      $params[":col" . ($i + 1)] = $extracted_data[$i]; // Bind data with named placeholders
-    }
-
-    // Execute the INSERT query
-    try {
-      $stmt->execute($params);
-      echo "Record from '" . pathinfo($filepath)['basename'] . "' inserted successfully.<br>";
-    } catch (PDOException $e) {
-      echo "Error inserting record: " . $e->getMessage() . "<br>";
-    }
+      if ($output) {
+          echo 'Success: File uploaded and processed successfully.';
+      } else {
+          echo 'Failure: File upload or processing failed.';
+      }
   }
+}
+
+// Processing General Files //Collaborator & Production & Direct Charges
+if (isset($_FILES['collaborators'], $_FILES['production'], $_FILES['charges'])) {
+  $collaboratorsPath = $upload_dir . $_FILES['collaborators']['name'];
+  $productionPath = $upload_dir . $_FILES['production']['name'];
+  $chargesPath = $upload_dir . $_FILES['charges']['name'];
+
+  
+    move_uploaded_file($_FILES['collaborators']['tmp_name'], $collaboratorsPath) ;
+    move_uploaded_file($_FILES['production']['tmp_name'], $productionPath) ;
+    move_uploaded_file($_FILES['charges']['tmp_name'], $chargesPath); 
+    
+    {  
+      // Call Python script to verify data and check names
+      $command = escapeshellcmd("python3 verify_general_files.py " . escapeshellarg($collaboratorsPath) . " " . escapeshellarg($productionPath) . " ". escapeshellarg($chargesPath) . " ". escapeshellarg($refFilePath) . " " . escapeshellarg($host) . " " . escapeshellarg($db_name) . " " . escapeshellarg($username) . " " . escapeshellarg($password));
+      $output = shell_exec($command);
+      $result = json_decode($output, true);
+
+      if ($output === null) {
+        echo 'Error: Python script did not execute.';
+        exit();
+    }
+    $result = json_decode($output, true);
+
+    if ($output) {
+        echo 'Success: File uploaded and processed successfully.';
+    } else {
+        echo 'Failure: File upload or processing failed.';
+    }
+
+    } 
+}
+
+
+// Check if the file has been uploaded
+if (isset($_FILES['incharges'])) {
+    $inchargesPath = $upload_dir . $_FILES['incharges']['name'];
+    $collaboratorsPath = $upload_dir . 'Fichier collaborateurs.xlsx';
+    move_uploaded_file($_FILES['incharges']['tmp_name'], $inchargesPath);
+
+    $command = escapeshellcmd("python3 preprocess_incharges.py " . escapeshellarg($inchargesPath) . " " . escapeshellarg($host) . " " . escapeshellarg($db_name) . " " . escapeshellarg($username) . " " . escapeshellarg($password). " " . escapeshellarg($collaboratorsPath));
+    $output = shell_exec($command);
+    if ($output === null) {
+        echo 'Error: Python script did not execute.';
+        exit();
+    }
+    if ($output) {
+        echo 'Success: File uploaded and processed successfully.';
+    } else {
+        echo 'Failure: File upload or processing failed.';
+    }
 }
 
