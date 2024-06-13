@@ -1,11 +1,11 @@
 <?php
 include 'layout/header.php'; 
 
-$pdo = // Ensure your PDO connection setup here
+
 $month = $_GET['month'] ?? date('Y-m'); // Get month from URL or default to current month
 
 function fetchMonthlyData($pdo, $month) {
-    $stmt = $pdo->prepare("SELECT * FROM `your_table_name` WHERE DATE_FORMAT(your_date_column, '%Y-%m') = :month");
+    $stmt = $pdo->prepare("SELECT * FROM `resultat` WHERE DATE_FORMAT(MOIS, '%Y-%m') = :month");
     $stmt->bindParam(':month', $month);
     $stmt->execute();
     return $stmt->fetchAll(PDO::FETCH_ASSOC);
@@ -53,23 +53,9 @@ $monthlyData = fetchMonthlyData($pdo, $month);
         </div>
     </div>
 </main>
-
-<script>
-document.querySelector('.search-input').addEventListener('keyup', function() {
-    var searchTerm = this.value.toLowerCase();
-    var table = document.querySelector('table');
-    var rows = table.querySelectorAll('tbody tr');
-    rows.forEach(function(row) {
-        var cells = row.querySelectorAll('td');
-        var match = Array.from(cells).some(function(cell) {
-            return cell.textContent.toLowerCase().includes(searchTerm);
-        });
-        row.style.display = match ? '' : 'none';
-    });
-});
-</script>
-
 <?php include 'layout/footer.php'; ?>
-```
-</rewritten_file><|eot_id|>
+
+
+
+
 

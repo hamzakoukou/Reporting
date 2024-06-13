@@ -66,43 +66,37 @@ def create_table_from_file(connection, file_path, table_name):
         print(f"The error '{e}' occurred")
 
 def insert_data_from_file(connection, file_path, table_name):
-    """Insert data from a file into the database."""
+    """Insert data directly from a file into the database, formatting dates as 'YYYY-MM-DD'."""
     columns = read_columns(file_path)
     sanitized_columns = [sanitize_column_name(col) for col in columns]
     insert_sql = f"INSERT INTO {table_name} ({', '.join(sanitized_columns)}) VALUES ({', '.join(['%s'] * len(sanitized_columns))})"
 
-    if file_path.endswith('.csv'):
-        with open(file_path, newline='') as csvfile:
-            reader = csv.reader(csvfile)
-            next(reader)  # Skip the header row
-            for row in reader:
-                # row = format_date_in_row(row, columns, 'MOIS')
-                insert_row(connection, insert_sql, row)
-    elif file_path.endswith('.xlsx'):
-        workbook = openpyxl.load_workbook(file_path ,data_only=True)
+    if file_path.endswith('.xlsx'):
+        workbook = openpyxl.load_workbook(file_path, data_only=True)
         sheet = workbook.active
         for row in sheet.iter_rows(min_row=2):  # Skip the header row
             cell_values = []
             for cell in row:
                 if isinstance(cell.value, datetime):
-                    cell_values.append(cell.value.strftime('%m/%d/%y'))  # Format for SQL DATE
+                    # Format datetime object to 'YYYY-MM-DD'
+                    cell_values.append(cell.value.strftime('%Y-%m-%d'))
                 elif isinstance(cell.value, (int, float)):
                     cell_values.append(round(cell.value, 3))
                 else:
                     cell_values.append(cell.value)
-            # cell_values = format_date_in_row(cell_values, [cell.value for cell in next(sheet.iter_rows(min_row=1, max_row=1))], 'MOIS')
             insert_row(connection, insert_sql, cell_values)
-
+    else:
+        raise ValueError("Unsupported file format, only '.xlsx' files are supported with this function.")
 
 def insert_row(connection, insert_sql, row):
     """Helper function to insert a row into the database."""
     cursor = connection.cursor()
     try:
-        formatted_row = [str(cell).strip() if cell is not None else None for cell in row]
-        cursor.execute(insert_sql, formatted_row)
+        cursor.execute(insert_sql, row)
         connection.commit()
     except Error as e:
         print(f"Failed to insert row {row}: {e}")
+        connection.rollback()
 
 def normalize_analytique_length(connection, table_name):
     """Truncate 'ANALYTIQUE' values to a maximum of 6 characters."""
@@ -159,12 +153,15 @@ def calculate_and_populate_solde_real(connection, table_name):
     # Step 2: Calculate the 'SOLDE_REAL' for each 'MOIS' and 'ANALYTIQUE'
     update_solde_real_query = f"""
     UPDATE {table_name} t1
-    SET t1.SOLDE_REAL = t1.SOLDE - COALESCE((
-        SELECT t2.SOLDE
+    JOIN (
+        SELECT t2.ANALYTIQUE, t2.MOIS, t2.SOLDE - COALESCE(t3.SOLDE, 0) AS SOLDE_REAL
         FROM {table_name} t2
-        WHERE t2.ANALYTIQUE = t1.ANALYTIQUE 
-        AND EXTRACT(YEAR_MONTH FROM STR_TO_DATE(t2.MOIS, '%m/%d/%Y')) = EXTRACT(YEAR_MONTH FROM STR_TO_DATE(t1.MOIS, '%m/%d/%Y')) - 1
-    ), 0);
+        LEFT JOIN {table_name} t3
+        ON t2.ANALYTIQUE = t3.ANALYTIQUE
+        AND t3.MOIS = DATE_SUB(t2.MOIS, INTERVAL 1 MONTH)
+    ) t4
+    ON t1.ANALYTIQUE = t4.ANALYTIQUE AND t1.MOIS = t4.MOIS
+    SET t1.SOLDE_REAL = t4.SOLDE_REAL;
     """
     try:
         cursor.execute(update_solde_real_query)
@@ -216,13 +213,12 @@ def create_and_populate_solde_part(connection, table_name, collaborators_file):
         print("'SOLDE_PART' updated successfully.")
     except Error as e:
         print(f"Failed to update 'SOLDE_PART': {e}")
-
 def convert_column_to_date(connection, table_name, column_name):
     """Convert a TEXT column to DATE type after formatting the date."""
     # First, update the column to format dates into 'YYYY-MM-DD'
     format_dates_query = f"""
     UPDATE {table_name}
-    SET {column_name} = STR_TO_DATE({column_name}, '%m/%d/%y');
+    SET {column_name} = STR_TO_DATE({column_name}, '%Y-%m-%d');
     """
     # Then, modify the column type to DATE
     convert_type_query = f"""
@@ -257,9 +253,8 @@ def main():
     table_name = "incharges_table"
     create_table_from_file(connection, file_path, table_name)
     insert_data_from_file(connection, file_path, table_name)
-    
-    # Convert MOIS column from TEXT to DATE
-    convert_column_to_date(connection, table_name, "MOIS")
+
+    convert_column_to_date(connection, table_name, 'MOIS')
 
     normalize_analytique_length(connection, table_name)
     aggregate_and_modify_data(connection, table_name)
@@ -269,4 +264,3 @@ def main():
 
 if __name__ == "__main__":
     main()
-

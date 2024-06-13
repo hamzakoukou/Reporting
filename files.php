@@ -29,13 +29,13 @@ $_SESSION['all_files_done'] = $allFilesDone;
                     <div class="block-content block-content-full">
                         <form id="generalUploadForm" action="process_upload.php" method="post" enctype="multipart/form-data">
                             <label>Fichier des collaborateurs</label>
-                            <input type="file" id="fileCollaborators" name="collaborators" required><br>
+                            <input type="file" id="fileCollaborators" name="collaborators"  multiple required><br>
                             <label>Fichier de Production</label>
-                            <input type="file" id="fileProduction" name="production" required><br>
+                            <input type="file" id="fileProduction" name="production"  multiple required><br>
                             <label>Fichier de Charges Directes</label>
-                            <input type="file" id="fileCharges" name="charges" required><br>
-                            <label>Fichier de Charges Indirectes</label>
-                            <input type="file" id="fileCharges" name="incharges" multiple required>
+                            <input type="file" id="fileCharges" name="charges"  multiple required><br>
+                            <!-- <label>Fichier de Charges Indirectes</label>
+                            <input type="file" id="fileCharges" name="incharges" multiple required> -->
                             <br>
                             <button type="submit" class="btn btn-primary">Upload</button>
                         </form>

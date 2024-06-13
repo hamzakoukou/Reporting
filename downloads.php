@@ -1,7 +1,5 @@
 <?php
 require 'vendor/autoload.php';
-use PhpOffice\PhpSpreadsheet\Spreadsheet;
-use PhpOffice\PhpSpreadsheet\Writer\Xlsx;
 include 'layout/header.php';
 
 // Ensure the downloads directory exists
@@ -10,39 +8,22 @@ if (!is_dir($downloadsDir)) {
     mkdir($downloadsDir, 0777, true);
 }
 
-$month = $_GET['month'];
+$month = $_GET['month'] ?? NULL;
 
-function fetchMonthlyData($pdo, $month) {
-    $stmt = $pdo->prepare("SELECT * FROM `your_table_name` WHERE DATE_FORMAT(your_date_column, '%Y-%m') = :month");
-    $stmt->bindParam(':month', $month);
-    $stmt->execute();
-    return $stmt->fetchAll(PDO::FETCH_ASSOC);
-}
+$command = escapeshellcmd("python download_reports.py " . escapeshellarg($month) . " " . escapeshellarg($host) . " " . escapeshellarg($db_name) . " " . escapeshellarg($username) . " " . escapeshellarg($password));
+$output = shell_exec($command);
 
-$monthlyData = fetchMonthlyData($pdo, $month);
-
-if (!empty($monthlyData)) {
-    $spreadsheet = new Spreadsheet();
-    $sheet = $spreadsheet->getActiveSheet();
-
-    $sheet->fromArray(array_keys($monthlyData[0]), NULL, 'A1');
-    $sheet->fromArray($monthlyData, NULL, 'A2');
-
-    $writer = new Xlsx($spreadsheet);
-    $fileName = "monthly_data_$month.xlsx";
-    $filePath = $downloadsDir . $fileName;
-
-    $writer->save($filePath);
-
+if (file_exists($output)) {
     header('Content-Type: application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
-    header("Content-Disposition: attachment; filename=\"$fileName\"");
-    readfile($filePath);
+    header("Content-Disposition: attachment; filename=\"" . basename($output) . "\"");
+    readfile($output);
     exit;
 } else {
     echo "No data available for download.";
 }
 ?>
 
+<main id="main-container">
 <div class="content">
     <div class="block">
         <div class="block-header">
@@ -60,7 +41,7 @@ if (!empty($monthlyData)) {
                 <tbody>
                     <?php
                     // Fetch downloaded files
-                    $downloadFiles = scandir($downloadsDir); // Adjust path as necessary
+                    $downloadFiles = scandir($downloadsDir);
                     foreach ($downloadFiles as $file) {
                         if ($file !== "." && $file !== "..") {
                             echo "<tr>";
@@ -76,5 +57,6 @@ if (!empty($monthlyData)) {
         </div>
     </div>
 </div>
+                </main>
 
 <?php include 'layout/footer.php';?>

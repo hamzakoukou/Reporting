@@ -19,7 +19,7 @@ function fetchTableData($pdo, $tableName, $month) {
 }
 
 $tableDisplayNames = [
-    'collaborator_table' => 'Collaborateurs',
+    'collaborators_table' => 'Collaborateurs',
     'production_table' => 'Production',
     'charges_table' => 'Charges',
     'incharges_table' => 'Incharges'
